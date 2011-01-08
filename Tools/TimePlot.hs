@@ -279,7 +279,7 @@ makeChart chartKindF events0 = renderLayout1sStacked plots
       KindHistogram bs k  -> withAnyOrdinate $ plotTrackHist      name es bs k
       KindEvent           -> withAnyOrdinate $ plotTrackEvent     name es
       KindQuantile  bs qs -> withAnyOrdinate $ plotTrackQuantile  name es qs bs layoutWithTitle
-      KindQuantileL bs qs -> withAnyOrdinate $ plotTrackQuantile  name es qs bs logLayoutWithTitle
+      KindQuantileL bs qs -> withAnyOrdinate $ plotTrackQuantile  name (positiveValues es) qs bs logLayoutWithTitle
       KindBinFreq   bs vs -> withAnyOrdinate $ plotTrackBinFreqs  name es vs bs
       KindBinHist   bs vs -> withAnyOrdinate $ plotTrackBinHist   name es vs bs
       KindLines           -> withAnyOrdinate $ plotTrackLines     name es
@@ -292,6 +292,8 @@ makeChart chartKindF events0 = renderLayout1sStacked plots
     edges  es = [(t,e) | (t,InEdge  e) <- es]
     values es = [(t,v) | (t,InValue v) <- es]
     atoms  es = [(t,a) | (t,InAtom  a) <- es]
+
+    positiveValues es = filter (\(_,x) -> case x of { (InValue v) -> v > 0; _ -> False }) es
 
     lag xs = xs `zip` tail xs
 
