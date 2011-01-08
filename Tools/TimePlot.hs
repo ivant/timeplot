@@ -101,6 +101,7 @@ data (TimeAxis t) => ChartKind t = KindEvent
                | KindDuration  { mapName :: S.ByteString -> S.ByteString, subKind :: ChartKind t }
                | KindCount     { binSize :: Delta t }
                | KindQuantile  { binSize :: Delta t, quantiles :: [Double] }
+               | KindQuantileL { binSize :: Delta t, quantiles :: [Double] }
                | KindBinFreq   { binSize :: Delta t, delims    :: [Double] }
                | KindBinHist   { binSize :: Delta t, delims    :: [Double] }
                | KindFreq      { binSize :: Delta t, style :: PlotBarsStyle }
@@ -177,6 +178,7 @@ readConf args = case (words $ single "time format" "-tf" ("date %Y-%m-%d %H:%M:%
         parseKind ["hist",    n,s] = KindHistogram {binSize=read n,style=parseStyle s}
         parseKind ["event"       ] = KindEvent
         parseKind ["quantile",b,q] = KindQuantile  {binSize=read b, quantiles=read ("["++q++"]")}
+        parseKind ["quantilel",b,q]= KindQuantileL {binSize=read b, quantiles=read ("["++q++"]")}
         parseKind ["binf",    b,q] = KindBinFreq   {binSize=read b, delims   =read ("["++q++"]")}
         parseKind ["binh",    b,q] = KindBinHist  {binSize=read b, delims   =read ("["++q++"]")}
         parseKind ["lines"       ] = KindLines
@@ -276,7 +278,8 @@ makeChart chartKindF events0 = renderLayout1sStacked plots
       KindFreq      bs k  -> withAnyOrdinate $ plotTrackFreq      name es bs k
       KindHistogram bs k  -> withAnyOrdinate $ plotTrackHist      name es bs k
       KindEvent           -> withAnyOrdinate $ plotTrackEvent     name es
-      KindQuantile  bs qs -> withAnyOrdinate $ plotTrackQuantile  name es qs bs
+      KindQuantile  bs qs -> withAnyOrdinate $ plotTrackQuantile  name es qs bs layoutWithTitle
+      KindQuantileL bs qs -> withAnyOrdinate $ plotTrackQuantile  name es qs bs logLayoutWithTitle
       KindBinFreq   bs vs -> withAnyOrdinate $ plotTrackBinFreqs  name es vs bs
       KindBinHist   bs vs -> withAnyOrdinate $ plotTrackBinHist   name es vs bs
       KindLines           -> withAnyOrdinate $ plotTrackLines     name es
@@ -326,7 +329,7 @@ makeChart chartKindF events0 = renderLayout1sStacked plots
             toFillStyle s = solidFillStyle . opaque $ fromMaybe lightgray (readColourName (statusColor s))
             toLabel     s = statusLabel s
 
-    plotTrackQuantile  name es qs bs = layoutWithTitle (plotBars plot) name
+    plotTrackQuantile  name es qs bs layout = layout (plotBars plot) name
       where plot = plot_bars_values  ^= toBars (byTimeBins (getQuantiles qs) bs t0 (values es)) $
                    plot_bars_item_styles ^= quantileStyles $
                    plot_bars_titles  ^= quantileTitles $
@@ -390,6 +393,10 @@ makeChart chartKindF events0 = renderLayout1sStacked plots
         layout1_margin ^= 0 $
         layout1_grid_last ^= True $
         defaultLayout1
+
+    logLayoutWithTitle plot name =
+        layout1_left_axis   .> laxis_generate ^= (autoScaledLogAxis defaultLogAxis) $
+        layoutWithTitle plot name
 
 edges2durations :: forall t. (Ord t, HasDelta t) => [(t,Edge)] -> [(t,InEvent)]
 edges2durations tes = [(t2, InValue $ toSeconds (t2 `sub` t1) (undefined::t)) | LongEvent t1 t2 _ <- edges2events tes]
